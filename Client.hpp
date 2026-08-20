@@ -21,8 +21,8 @@ class Client
 		std::string username;//not necc as nickname used by user cmnd other normally dont call with this
 		std::string realname;//also used by user cmnd
 							//USER <username> <mode> <unused>:<realname>
-		std::string inputBuffer;//store data from client from recv()
-		std::string outputBuffer;//from the client to server 
+		std::string inputBuffer;//store data from client to server
+		std::string outputBuffer;//from the  server to client 
 		bool passwordAccepted;
 		bool nicknameSet;
 		bool usernameSet;
