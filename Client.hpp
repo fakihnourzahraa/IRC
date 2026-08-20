@@ -56,7 +56,6 @@ class Client
 		bool hasCompleteLine() const;//make sure it a right cmnd end with /r/n
 		std::string extractLine();//we use it if we have many cmnd in one line so we split
 									//each one and run it then remove it from inputbuff
-		
 		//output
 		void appendOutput(const std::string& data);//same as before but from server tothe client in outputbuffer
 		const std::string& getOutputBuffer() const;

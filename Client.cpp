@@ -48,7 +48,7 @@ bool Client::isUsernameSet() const
 }
 bool Client::isRegistered() const
 {
-	return (this->passwordAccepted && this->nicknameSet do && this->usernameSet);
+	return (this->passwordAccepted && this->nicknameSet && this->usernameSet);
 }
 //set
 void Client::setNickname(const std::string& nickname)
