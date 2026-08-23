@@ -60,17 +60,14 @@ void Client::setUsername(const std::string& username)
 {
 	this->username = username;
 }
-
 void Client::setRealname(const std::string& realname)
 {
 	this->realname = realname;
 }
-
 void Client::setPasswordAccepted(bool accepted)
 {
 	this->passwordAccepted = accepted;
 }
-
 void Client::setNicknameSet(bool set)
 {
 	this->nicknameSet = set;
@@ -79,6 +76,7 @@ void Client::setUsernameSet(bool set)
 {
 	this->usernameSet = set;
 }
+
 //input
 void Client::appendInput(const std::string& data)
 {
@@ -89,7 +87,6 @@ bool Client::hasCompleteLine() const
 	return (this->inputBuffer.find("\r\n") != std::string::npos);//npos yane no position found
 				//so true if complete cmnd and \r\n found false if npos
 }
-
 std::string Client::extractLine()
 {
 	size_t pos;
