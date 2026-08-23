@@ -37,7 +37,7 @@ public:
     ~Channel();
     const std::string& getName() const;
     bool isEmpty() const;
-    // JOIN
+    //JOIN
     bool canJoin(Client* client, const std::string& key) const;
 	//for join can join has the key is invited is their a limit 
     bool addMember(Client* client);
@@ -45,7 +45,7 @@ public:
     //PART
     bool isMember(Client* client) const;//check it bcz some cmnd need to be as member(part,topic..)
     void removeMember(Client* client);//use for cmnd like kick,quit
-    //PRIVMSG / NOTICE
+    //PRIVMSG/NOTICE
     void broadcast(const std::string& message, Client* sender);//send it ro all without the sender wirh privmsg cmnd
     //TOPIC
     const std::string& getTopic() const;
