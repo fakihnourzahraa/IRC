@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Channel.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: miwehbe <miwehbe@student.42beirut.com>     +#+  +:+       +#+        */
+/*   By: nour <nour@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/18 20:59:25 by miwehbe           #+#    #+#             */
-/*   Updated: 2026/08/18 20:59:25 by miwehbe          ###   ########.fr       */
+/*   Updated: 2026/08/26 14:50:55 by nour             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,11 @@
 #define CHANNEL_HPP
 #include <string>
 #include <vector>
-#include "Client.hpp"
+# include <iostream>
+# include <fstream>
+# include <iomanip>
+# include <cstdlib>
+# include "Client.hpp"
 class Client;
 class Channel
 {
@@ -76,5 +80,7 @@ public:
     size_t getUserLimit() const;
     void setUserLimit(size_t limit);
     void removeUserLimit();
+    size_t getUserCount() const;
+    bool channelFull() const;
 };
 #endif
