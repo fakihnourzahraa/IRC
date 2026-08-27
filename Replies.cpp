@@ -38,6 +38,10 @@ std::string Replies::noSuchChannel(const std::string& nickname,const std::string
 {
 	return (prefix(nickname, "403")+ channel + " :No such channel\r\n");
 }//:ircserv 403 Mira #ss :No such channel(when do join for chanel not exist)
+std::string Replies::noOrigin(const std::string& nickname)
+{
+	return (prefix(nickname, "409")+ ":No origin specified\r\n");
+}//:ircserv 409 Mira :No origin specified(PING sent with no token)
 std::string Replies::noRecipient(const std::string& nickname,const std::string& command)
 {
 	return (prefix(nickname, "411")+ ":No recipient given (" + command + ")\r\n");

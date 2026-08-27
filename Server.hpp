@@ -56,6 +56,7 @@ private:
     void handleKick(Client& client,const std::vector<std::string>& param);
     void handleMode(Client& client,const std::vector<std::string>& param);
     void handleQuit(Client& client,const std::vector<std::string>& param);
+	void handlePing(Client& client, const std::vector<std::string>& param);
 
 public:
     Server(int port, const std::string& password);

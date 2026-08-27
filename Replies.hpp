@@ -14,6 +14,7 @@ public:
 	//errors
 	static std::string noSuchNick(const std::string& nickname,const std::string& target);//401
 	static std::string noSuchChannel(const std::string& nickname,const std::string& channel);//403
+	static std::string noOrigin(const std::string& nickname);//409 for ping pong
 	static std::string noRecipient(const std::string& nickname,const std::string& command);//411
 	static std::string noTextToSend(const std::string& nickname);//412
 	static std::string cannotSendToChannel(const std::string& nickname,const std::string& channel);//404
