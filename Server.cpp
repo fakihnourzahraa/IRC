@@ -1,6 +1,7 @@
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Channel.hpp"
+#include "CommandHandler.hpp"
 #include <sys/socket.h>//socket,bind,listen...
 #include <unistd.h>//close
 #include <fcntl.h>//for fcntl
@@ -16,6 +17,7 @@ Server::Server(int portNumber, const std::string& serverPassword)
     port = portNumber;
     password = serverPassword;
     listenFd = -1;//mean no valid socket
+    commandHandler = new CommandHandler(*this);
 }
 Server::~Server()
 {
@@ -29,6 +31,7 @@ Server::~Server()
 		delete channels[i];
 	if (listenFd != -1)
 		close(listenFd);
+	delete commandHandler;
 }
 void Server::setupSocket()
 {//the flow:	//socket->setsockopt->bind->listen->fcntl
@@ -74,11 +77,10 @@ void Server::acceptNewClient()
         close(clientFd);
         return;//we close it and stop handle it
     }
-
     Client* client = new Client(clientFd);
     clients.push_back(client);//we push it to client vector
-
-    struct pollfd pfd;//creat a pollfd for the new client 
+	
+    struct pollfd pfd;//creat a pollfd for the new client
 	//poll() need pollfd for each client
     pfd.fd = clientFd;//tell poll that we work by the clientfd
     pfd.events = POLLIN;//to know when this client have data avail to read
@@ -89,7 +91,8 @@ void Server::acceptNewClient()
 void Server::receiveData(Client& client)
 {
     char buffer[4096];//temporary buff to reciev byte from client
-    int bytesReceived = recv( client.getFd(),buffer,sizeof(buffer),0);
+    int fd = client.getFd();
+	int bytesReceived = recv( fd,buffer,sizeof(buffer),0);
 
     if (bytesReceived == 0)//when the client close the conn
     {
@@ -103,10 +106,10 @@ void Server::receiveData(Client& client)
     }
     client.appendInput(std::string(buffer, bytesReceived));
     //check if inputbuff have at leat an irc cmnd end with\r\n
-    while (client.hasCompleteLine())
+    while (findClientByFd(fd) != NULL && client.hasCompleteLine())
     {
         std::string line = client.extractLine();//take one inoput out of inputbuff
-        dispatchCommand(client, line);//identify the command 
+        commandHandler->dispatchCommand(client, line);//identify the command 
     }
 }
 
@@ -116,7 +119,7 @@ void Server::sendData(Client& client)
     if (!client.hasOutput())
         return;
     //this contains data that the server wantsto send to client
-    const std::string& output = client.getOutput();
+    const std::string& output = client.getOutputBuffer();
     // Send the data through the client's socket.
     int bytesSent = send(client.getFd(),output.c_str(),output.size(),0);
     if (bytesSent < 0)//if send failed.
@@ -201,136 +204,71 @@ Client* Server::findClientByNickname(const std::string& nickname)
     return NULL;
 }
 
-void Server::dispatchCommand(Client& client, const std::string& line)
+const std::string& Server::getPassword() const
 {
-    ParsedCommand parsed = Parser::parse(line);
-    if (parsed.command.empty())
-        return;
-    const std::string& command = parsed.command;
-    const std::vector<std::string>& params = parsed.params;
-
-    if (command == "PASS")
-        handlePass(client, params);
-    else if (command == "NICK")
-        handleNick(client, params);
-    else if (command == "USER")
-        handleUser(client, params);
-    else if (command == "JOIN")
-        handleJoin(client, params);
-    else if (command == "PART")
-        handlePart(client, params);
-    else if (command == "PRIVMSG")
-        handlePrivmsg(client, params);
-    else if (command == "NOTICE")
-        handleNotice(client, params);
-    else if (command == "TOPIC")
-        handleTopic(client, params);
-    else if (command == "INVITE")
-        handleInvite(client, params);
-    else if (command == "KICK")
-        handleKick(client, params);
-    else if (command == "MODE")
-        handleMode(client, params);
-    else if (command == "QUIT")
-        handleQuit(client, params);
-    else if (command == "PING")
-        handlePing(client, params);
-    else
-        client.appendOutput(Replies::unknownCommand(client.getNickname(), command));
+    return password;
 }
 
-void Server::handlePing(Client& client, const std::vector<std::string>& param)
+void Server::run()
 {
-    if (param.empty())
-    {
-        client.appendOutput(Replies::noOrigin(client.getNickname()));
-        return;
-    }
-    client.appendOutput(":ircserv PONG ircserv :" + param[0] + "\r\n");
-}
+    setupSocket();//we create the socke and prepare it
+    std::cout << "ircserv listening on port " << port << std::endl;
 
-void Server::handlePass(Client& client,const std::vector<std::string>& param)
-{
-    if (client.isPasswordAccepted())
+    while (true)//infinite loop to keep running
     {
-        client.appendOutput(Replies::alreadyRegistered(client.getNickname()));//if he do twice pass xx
-        return;
-    }
-    if (param.empty())
-    {
-        client.appendOutput(Replies::needMoreParams(client.getNickname(), "PASS"));//when do pass itshould be a paramt after it
-        return;
-    }
-    if (param[0] != password)
-    {
-        client.appendOutput(Replies::passwordMismatch(client.getNickname()));
-        return;
-    }
-    client.setPasswordAccepted(true);//if write pass right put it true
-}
-
-void Server::handleNick(Client& client,const std::vector<std::string>& param)
-{
-    if (param.empty())
-    {
-        client.appendOutput(Replies::noNicknameGiven(client.getNickname()));
-        return;
-    }
-    const std::string& newNick = param[0];
-    if (newNick.empty() || !std::isalpha(newNick[0]))
-    {
-        client.appendOutput(Replies::erroneousNickname(client.getNickname(), newNick));
-        return;
-    }//check first char is alpha
-    for (size_t i = 1; i < newNick.size(); ++i)//checkafter first character
-    {
-        char c = newNick[i];
-        if (!std::isalnum(c) && c != '-' && c != '_')//no use of @#.!
+        for (size_t i = 0; i < pollFds.size(); ++i)
         {
-            client.appendOutput(Replies::erroneousNickname(client.getNickname(), newNick));
-            return;
+            if (pollFds[i].fd == listenFd)
+                continue;//skip the listen fd bcz its only watch (pollin)
+            Client* c = findClientByFd(pollFds[i].fd);
+            if (c != NULL && c->hasOutput())
+                pollFds[i].events = POLLIN | POLLOUT;//pollout when server has also data to send to client
+            else
+                pollFds[i].events = POLLIN;//when client send data
         }
-    }
-    Client* existing = findClientByNickname(newNick);//point to an address
-    if (existing != NULL && existing != &client)//check if nickname in use existing !=null mean enu nickname in use
-    {
-		//so we search first if !=null we see if these clien & same as the one do nick
-        client.appendOutput(Replies::nicknameInUse(client.getNickname(), newNick));
-        return;
-    }
-	bool wasRegistered = client.isRegistered();
-    client.setNickname(newNick);
-    client.setNicknameSet(true);
-    if (!wasRegistered && client.isRegistered())//why this because if an exist client change the nick dont send it again the messages
-    {
-        client.appendOutput(Replies::welcome(client.getNickname()));
-        client.appendOutput(Replies::yourHost(client.getNickname()));
-        client.appendOutput(Replies::created(client.getNickname()));
-        client.appendOutput(Replies::myInfo(client.getNickname()));
-    }
-}
+        int ready = poll(&pollFds[0], pollFds.size(), -1);//main thing call the poll its wait until an event happen
+        if (ready < 0)//if fail yhe poll
+        {
+            if (errno == EINTR)//by signa;
+                continue;//interrupted by a signal,retry
+            break;//real poll() failure, stop the server
+        }
 
-void Server::handleUser(Client& client,const std::vector<std::string>& param)
-{
-    if (client.isRegistered())
-    {
-        client.appendOutput(Replies::alreadyRegistered(client.getNickname()));
-        return;
-    }
-    if (param.size() < 4)//bcz USER <username> <mode> <unused> :<realname>
-    {
-        client.appendOutput(Replies::needMoreParams(client.getNickname(), "USER"));
-        return;
-    }
-    client.setUsername(param[0]);
-    client.setRealname(param[3]);
-    client.setUsernameSet(true);
+        for (size_t i = 0; i < pollFds.size(); ++i)
+        {
+            if (pollFds[i].revents == 0)
+                continue;//ignore it when nothing happen
 
-    if (client.isRegistered())
-    {
-        client.appendOutput(Replies::welcome(client.getNickname()));
-        client.appendOutput(Replies::yourHost(client.getNickname()));
-        client.appendOutput(Replies::created(client.getNickname()));
-        client.appendOutput(Replies::myInfo(client.getNickname()));
+            size_t sizeBefore = pollFds.size();//bcz later we want to remobve client
+            int fd = pollFds[i].fd;
+            if (fd == listenFd)
+            {
+                if (pollFds[i].revents & POLLIN)
+                    acceptNewClient();
+            }
+            else//not the listensocket so client(deal wigh an exist client)
+            {
+                Client* c = findClientByFd(fd);
+                if (c == NULL)
+                    continue;//already gone this round
+
+                if (pollFds[i].revents & (POLLHUP | POLLERR))
+                {
+                    removeClient(*c);
+                }//hangup or error occured we delete it
+                else//client hasnt disconnect or produce error
+                {
+                    if (pollFds[i].revents & POLLIN)
+                    {
+                        receiveData(*c);
+                        c = findClientByFd(fd);
+                    }
+                    if (c != NULL && (pollFds[i].revents & POLLOUT))
+                        sendData(*c);
+                }
+            }
+            if (pollFds.size() < sizeBefore)
+                --i;
+        }
     }
 }

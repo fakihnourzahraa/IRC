@@ -20,7 +20,7 @@ bool Channel::isEmpty() const
         return true;
     return false;
 }
-    
+
 bool Channel::canJoin(Client* client, const std::string& key) const
 {
     if (inviteOnly && !isInvited(client))
