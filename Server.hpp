@@ -37,7 +37,6 @@ private:
     void receiveData(Client& client);
     void sendData(Client& client);
     //management
-    Channel* findChannel(const std::string& name);
 	Client* findClientByFd(int fd);
 
 public:
@@ -47,6 +46,8 @@ public:
 	const std::string& getPassword() const;
 	void removeClient(Client& client);
 	Client* findClientByNickname(const std::string& nickname);
+	Channel* findChannel(const std::string& name);
+	Channel* createChannel(const std::string& name);
 };
 
 #endif

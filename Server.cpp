@@ -181,6 +181,12 @@ Channel* Server::findChannel(const std::string& name)
     }
     return NULL;//if no one retuen null
 }
+Channel* Server::createChannel(const std::string& name)
+{
+    Channel* channel = new Channel(name);
+    channels.push_back(channel);
+    return channel;
+}
 Client* Server::findClientByFd(int fd)
 {
     //go through all clients connected to the server.

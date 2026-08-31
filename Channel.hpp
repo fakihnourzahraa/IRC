@@ -82,5 +82,7 @@ public:
     void removeUserLimit();
     size_t getUserCount() const;
     bool channelFull() const;
+	const std::vector<Client*>& getMembers() const;
+	const std::vector<Client*>& getOperators() const;
 };
 #endif

@@ -2,6 +2,7 @@
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Parser.hpp"
+#include "Channel.hpp"
 #include "Replies.hpp"
 #include <cctype>//isalpha,isalnum
 
@@ -46,6 +47,8 @@ void CommandHandler::dispatchCommand(Client& client, const std::string& line)
         client.appendOutput(Replies::unknownCommand(client.getNickname(), command));
 }
 
+/*ping:client send a ping to check the server is response
+and the server answer with pong */
 void CommandHandler::handlePing(Client& client, const std::vector<std::string>& param)
 {
     if (param.empty())
@@ -56,6 +59,7 @@ void CommandHandler::handlePing(Client& client, const std::vector<std::string>& 
     client.appendOutput(":ircserv PONG ircserv :" + param[0] + "\r\n");
 }
 
+/*pass:client provide the pass during registration and sercer check if it os right or no*/
 void CommandHandler::handlePass(Client& client,const std::vector<std::string>& param)
 {
     if (client.isPasswordAccepted())
@@ -76,6 +80,8 @@ void CommandHandler::handlePass(Client& client,const std::vector<std::string>& p
     client.setPasswordAccepted(true);//if write pass right put it true
 }
 
+/* nick : client choose a nickname ,the server validate ir and check
+nobody have it also*/
 void CommandHandler::handleNick(Client& client,const std::vector<std::string>& param)
 {
     if (param.empty())
@@ -92,7 +98,7 @@ void CommandHandler::handleNick(Client& client,const std::vector<std::string>& p
     for (size_t i = 1; i < newNick.size(); ++i)//checkafter first character
     {
         char c = newNick[i];
-        if (!std::isalnum(c) && c != '-' && c != '_')//no use of @#.!
+        if (!std::isalnum(c) && c != '-' && c != '_')//no use of @#.! only nbr ,- _
         {
             client.appendOutput(Replies::erroneousNickname(client.getNickname(), newNick));
             return;
@@ -116,7 +122,8 @@ void CommandHandler::handleNick(Client& client,const std::vector<std::string>& p
         client.appendOutput(Replies::myInfo(client.getNickname()));
     }
 }
-
+/*user:client provide ir username real name during registration 
+and server store them and complete the register*/
 void CommandHandler::handleUser(Client& client,const std::vector<std::string>& param)
 {
     if (client.isRegistered())
@@ -143,31 +150,201 @@ void CommandHandler::handleUser(Client& client,const std::vector<std::string>& p
 }
 // ----- not implemented yet to test
 //----mira
+
+/*quit: client ask to disconnect the server ,we remove it from the server and the channels*/
 void CommandHandler::handleQuit(Client& client, const std::vector<std::string>& param)
 {
     (void)param;
-    server.removeClient(client);//receiveData() checks fd existence after this, so this is safe
+    server.removeClient(client);
 }
+/*
+join:client ask to join a channel if the channel not exist we create it
+otherwise we check if the client can join or no if he can wwe check why else we add it
+*/
 void CommandHandler::handleJoin(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "JOIN"));
+    if (param.empty())
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "JOIN"));
+        return;
+    }
+    const std::string& channelName = param[0];
+    Channel* channel = server.findChannel(channelName);
+
+    if (channel == NULL)
+    {
+        //channel doesn't exist yet ,create it, first joiner becomes operator
+        channel = server.createChannel(channelName);
+        channel->addMember(&client);
+        channel->addOperator(&client);
+    }
+    else
+    {
+        if (channel->isMember(&client))
+            return; //already in channel nothing to do
+        std::string key;
+        if (param.size() > 1)
+            key = param[1];
+        if (!channel->canJoin(&client, key))
+        {
+            if (channel->getInviteOnly() && !channel->isInvited(&client))
+                client.appendOutput(Replies::inviteOnlyChannel(client.getNickname(), channelName));
+            else if (channel->getHasKey() && key != channel->getKey())
+                client.appendOutput(Replies::badChannelKey(client.getNickname(), channelName));
+            else if (channel->channelFull())
+                client.appendOutput(Replies::channelIsFull(client.getNickname(), channelName));
+            return;
+        }
+        channel->addMember(&client);
+    }
+    channel->broadcast(":" + client.getNickname() + " JOIN " + channelName + "\r\n", &client);
+    client.appendOutput(":" + client.getNickname() + " JOIN " + channelName + "\r\n");
+
+    if (channel->getTopic().empty())
+        client.appendOutput(Replies::noTopic(client.getNickname(), channelName));
+    else
+        client.appendOutput(Replies::topic(client.getNickname(), channelName, channel->getTopic()));
+
+    std::string names;
+    const std::vector<Client*>& members = channel->getMembers();
+    for (size_t i = 0; i < members.size(); ++i)
+    {
+        if (i > 0)
+            names += " ";
+        if (channel->isOperator(members[i]))
+            names += "@";
+        names += members[i]->getNickname();
+    }
+    client.appendOutput(Replies::namesReply(client.getNickname(), channelName, names));
+    client.appendOutput(Replies::endOfNames(client.getNickname(), channelName));
 }
+
+/*kick:channel operator ask to remove another client fro the channel
+we check the permission and member notify the chanel then remove it
+*/
 void CommandHandler::handleKick(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "KICK"));
+    if (param.size() < 2)
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "KICK"));
+        return;
+    }
+    const std::string& channelName = param[0];
+    const std::string& nickname = param[1];
+    Channel* channel = server.findChannel(channelName);
+    if (channel == NULL)
+    {
+        client.appendOutput(Replies::noSuchChannel(client.getNickname(), channelName));
+        return;
+    }
+    if (!channel->isMember(&client))
+    {
+        client.appendOutput(Replies::notOnChannel(client.getNickname(), channelName));
+        return;
+    }
+    if (!channel->isOperator(&client))
+    {
+        client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channelName));
+        return;
+    }
+
+    Client* target = server.findClientByNickname(nickname);
+    if (target == NULL)
+    {
+        client.appendOutput(Replies::noSuchNick(client.getNickname(), nickname));
+        return;
+    }
+    if (!channel->isMember(target))
+    {
+        client.appendOutput(Replies::userNotInChannel(client.getNickname(),nickname,channelName));
+        return;
+    }
+    std::string message =":" + client.getNickname() +" KICK " + channelName +" " + nickname + "\r\n";
+    channel->broadcast(message, &client);
+    client.appendOutput(message);
+    channel->kick(target);
 }
+
+/*topic: client ask to view or change the topic,we check that chennel exist,
+and the client is an operator to know if he allow to access or modify it
+*/
 void CommandHandler::handleTopic(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "TOPIC"));
+    if (param.empty())
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "TOPIC"));
+        return;
+    }
+    const std::string& channelName = param[0];
+    Channel* channel = server.findChannel(channelName);
+    if (channel == NULL)
+    {
+        client.appendOutput(Replies::noSuchChannel(client.getNickname(), channelName));
+        return;
+    }
+    if (!channel->isMember(&client))
+    {
+        client.appendOutput(Replies::notOnChannel(client.getNickname(), channelName));
+        return;
+	}
+    if (param.size() == 1)//topic #42 when we write this we ask for the current topic
+    {
+        if (channel->getTopic().empty())
+        {
+            client.appendOutput(Replies::noTopic(client.getNickname(), channelName));
+        }
+        else
+        {
+            client.appendOutput(Replies::topic(client.getNickname(),channelName,channel->getTopic()));
+        }
+        return;
+    }
+    //+t only channel operators can change the topic
+    if (channel->getTopicRestricted() &&!channel->isOperator(&client))
+    {
+        client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channelName));
+        return;
+    }
+    const std::string& newTopic = param[1];//change the topic
+    channel->setTopic(newTopic);
+    std::string message =":" + client.getNickname() +" TOPIC " + channelName +" :" + newTopic + "\r\n";
+    channel->broadcast(message, &client);
+    client.appendOutput(message);
 }
+
+/*part : client ask to leave the channel ,we check uf the channel exist ,and the client
+is member then remove the client from channel nottt server
+*/
 void CommandHandler::handlePart(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "PART"));
+    if (param.empty())
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "PART"));
+        return;
+    }
+    const std::string& channelName = param[0];
+    Channel* channel = server.findChannel(channelName);
+
+    if (channel == NULL)
+    {
+        client.appendOutput(Replies::noSuchChannel(client.getNickname(), channelName));
+        return;
+    }
+
+    if (!channel->isMember(&client))
+    {
+        client.appendOutput(Replies::notOnChannel(client.getNickname(), channelName));
+        return;
+    }
+    std::string message =":" + client.getNickname() +" PART " + channelName + "\r\n";
+    channel->broadcast(message, &client);//tell other member
+    client.appendOutput(message);
+    channel->removeMember(&client);//remove the client from the channel
 }
+
+//part :the client can remove him self(client leave a channel ,but still connect to server and can join again)
+//kick :the person who have the operatore remove
+//quit:the client leave chanel and not connected to server
 
 //-------nour
 void CommandHandler::handlePrivmsg(Client& client, const std::vector<std::string>& param)

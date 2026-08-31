@@ -72,7 +72,7 @@ bool Channel::isMember(Client* client) const
     }
     return false;
 }
-void Channel::removeMember(Client* client) 
+void Channel::removeMember(Client* client)
 {
     for (std::vector<Client*>::iterator i= members.begin(); i!= members.end(); ++i)
     {
@@ -211,4 +211,13 @@ void Channel::removeUserLimit()
 size_t Channel::getUserCount() const
 {
    return members.size();
+}
+
+const std::vector<Client*>& Channel::getMembers() const
+{
+    return members;
+}
+const std::vector<Client*>& Channel::getOperators() const
+{
+    return operators;
 }
