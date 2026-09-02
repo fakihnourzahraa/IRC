@@ -149,3 +149,8 @@ std::string Replies::endOfNames(const std::string& nickname,const std::string& c
 	return (prefix(nickname, "366")
 		+ channel + " :End of /NAMES list\r\n");
 }
+std::string Replies::inviting(const std::string& nickname,const std::string& target,const std::string& channel)
+{
+	return (prefix(nickname, "341")
+		+ target + " " + channel + "\r\n");
+}

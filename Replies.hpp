@@ -40,7 +40,7 @@ public:
 	static std::string topic(const std::string& nickname,const std::string& channel,const std::string& topicText);//332
 	static std::string namesReply(const std::string& nickname,const std::string& channel,const std::string& names);//353
 	static std::string endOfNames(const std::string& nickname,const std::string& channel);//366
-
+	static std::string inviting(const std::string& nickname, const std::string& target, const std::string& channel);//341
 private:
 	Replies();
 	~Replies();

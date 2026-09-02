@@ -347,25 +347,154 @@ void CommandHandler::handlePart(Client& client, const std::vector<std::string>& 
 //quit:the client leave chanel and not connected to server
 
 //-------nour
+
 void CommandHandler::handlePrivmsg(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "PRIVMSG"));
+    if (param.empty())
+    {    client.appendOutput(Replies::noRecipient(client.getNickname(), "PRIVMSG"));
+        return;
+    }
+    else if (param.size() < 2)
+    {
+        client.appendOutput(Replies::noTextToSend(client.getNickname()));
+        return ;
+    }
+    const std::string& target = param[0];
+    const std::string& message = param[1];
+
+    if (target[0] == '#')
+    {
+        Channel *a = server.findChannel(target);
+        if (a == NULL)
+        {
+            client.appendOutput(Replies::noSuchChannel(client.getNickname(), target));
+            return ;
+        }
+        if (!a->isMember(&client))
+        {
+            client.appendOutput(Replies::cannotSendToChannel(client.getNickname(), target));
+            return ;
+        }
+        std::string line = ":" + client.getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
+        a->broadcast(line, &client);
+    }
+    else
+    {
+        Client* b = server.findClientByNickname(target);
+        if (b == NULL)
+        {
+            client.appendOutput(Replies::noSuchNick(client.getNickname(), target));
+            return ;
+        }
+        std::string line = ":" + client.getNickname() + " PRIVMSG " + target + " :" + message + "\r\n";
+        b->appendOutput(line);
+    }
 }
 void CommandHandler::handleNotice(Client& client, const std::vector<std::string>& param)
 {
-    (void)client;
-    (void)param;
+    if (param.empty())
+    {   return ;
+    }
+    else if (param.size() < 2)
+    {
+        return ;
+    }
+    const std::string& target = param[0];
+    const std::string& message = param[1];
 
+    if (target[0] == '#')
+    {
+        Channel *a = server.findChannel(target);
+        if (a == NULL)
+        {
+            return ;
+        }
+        if (!a->isMember(&client))
+        {
+            return ;
+        }
+        std::string line = ":" + client.getNickname() + " NOTICE " + target + " :" + message + "\r\n";
+        a->broadcast(line, &client);
+    }
+    else
+    {
+        Client* b = server.findClientByNickname(target);
+        if (b == NULL)
+        {
+            return ;
+        }
+        std::string line = ":" + client.getNickname() + " NOTICE " + target + " :" + message + "\r\n";
+        b->appendOutput(line);
+    }
 }
+
 void CommandHandler::handleInvite(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "INVITE"));
+    if (param.empty() || param.size() < 2)
+        return ;
+
+    const std::string& nickname = param[0];
+    const std::string& channel = param[1];
+    if (nickname == "" || channel == "")
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "INVITE"));
+        return;
+    }
+    Channel *a = server.findChannel(channel);
+    if (a == NULL)
+    {
+        client.appendOutput(Replies::noSuchChannel(client.getNickname(), channel));
+        return;
+    }
+    if (!a->isMember(&client))
+    {
+        client.appendOutput(Replies::notOnChannel(client.getNickname(), channel));
+        return;
+    }
+    if (a->getInviteOnly())
+    {
+        if (!a->isOperator(&client))
+        {
+            client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channel));
+            return;
+        }
+    }
+    Client *target = server.findClientByNickname(nickname);
+    if ( target == NULL)
+    {
+        client.appendOutput(Replies::noSuchNick(client.getNickname(), nickname));
+        return;
+    }
+    if (a->isMember(target))
+    {
+        client.appendOutput(Replies::userOnChannel(client.getNickname(), nickname, channel));
+        return;
+    }
+    a->addInvite(target);
+    client.appendOutput(Replies::inviting(client.getNickname(), nickname, channel));
+        std::string line = ":" + client.getNickname() + " INVITE " + nickname + " :" + channel + "\r\n";
+    target->appendOutput(line);
 }
 
 void CommandHandler::handleMode(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
-    client.appendOutput(Replies::unknownCommand(client.getNickname(), "MODE"));
+    if (param.empty() || param.size() < 2)
+    {
+        client.appendOutput(Replies::needMoreParams(client.getNickname(), "PASS"));//when do pass itshould be a paramt after it
+        return;
+    }
+    const std::string& nickname = param[0];
+    const std::string& channel = param[1];
+
+    Channel *a = server.findChannel(channel);
+    if (a == NULL)
+    {
+        client.appendOutput(Replies::noSuchChannel(client.getNickname(), channel));
+        return;
+    }
+    if (!a->isOperator(&client))
+    {
+        client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channel));
+        return;
+    }
 }
