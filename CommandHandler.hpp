@@ -14,7 +14,6 @@ private:
 public:
     CommandHandler(Server& server);
     ~CommandHandler();
-
     void dispatchCommand(Client& client, const std::string& line);
     //IRC commands
     void handlePing(Client& client, const std::vector<std::string>& param);

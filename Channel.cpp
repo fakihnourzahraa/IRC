@@ -8,7 +8,6 @@ Channel::Channel(const std::string& newName)
 
 Channel::~Channel()
 {
-	std::cout <<"Default destructor is called" << std::endl;
 }
 const std::string& Channel::getName() const
 {

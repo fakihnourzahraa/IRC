@@ -32,7 +32,7 @@ private:
 	CommandHandler* commandHandler;
     //setup
     void setupSocket();
-
+	static void handleSignal(int signum);
     void acceptNewClient();
     void receiveData(Client& client);
     void sendData(Client& client);
@@ -48,6 +48,8 @@ public:
 	Client* findClientByNickname(const std::string& nickname);
 	Channel* findChannel(const std::string& name);
 	Channel* createChannel(const std::string& name);
+	void removeChannel(Channel* channel);
+	const std::vector<Channel*>& getChannels() const;
 };
 
 #endif

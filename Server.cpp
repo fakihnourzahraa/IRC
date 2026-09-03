@@ -11,6 +11,7 @@
 #include <sstream>//string stream
 #include <cctype>//toupper...
 #include <netinet/in.h>//sockaddrs_in
+#include <csignal>
 
 Server::Server(int portNumber, const std::string& serverPassword)
 {
@@ -33,6 +34,11 @@ Server::~Server()
 		close(listenFd);
 	delete commandHandler;
 }
+void Server::handleSignal(int signum)
+{
+    (void)signum;
+}
+
 void Server::setupSocket()
 {//the flow:	//socket->setsockopt->bind->listen->fcntl
     listenFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,6 +59,13 @@ void Server::setupSocket()
         throw std::runtime_error("listen() failed");
 
     fcntl(listenFd, F_SETFL, O_NONBLOCK);//nonblock make recv send return immediately instead of blocking
+	struct sigaction sa;
+    sa.sa_handler = Server::handleSignal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGQUIT, &sa, NULL);
+
     struct pollfd pfd;//now we have the listenfd and server use poll() so pollfd have info
 						//the poll should monitor
     pfd.fd = listenFd;
@@ -137,14 +150,22 @@ void Server::removeClient(Client& client)
     int fd = client.getFd();//save the fc client we want to delete
 
     //we remove the client from all the channels we have
-    for (std::vector<Channel*>::iterator it = channels.begin();it != channels.end();++it)
-    {
-        // Check if this client is a member of the current channel.
-        if ((*it)->isMember(&client))
-        {
-            (*it)->removeMember(&client);//if is a member remove it from this channel
-        }
-    }
+    for (std::vector<Channel*>::iterator it = channels.begin(); it != channels.end(); )
+	{
+		if ((*it)->isMember(&client))
+		{
+			(*it)->removeMember(&client);
+			(*it)->removeOperator(&client);
+			(*it)->removeInvite(&client);
+		}
+		if ((*it)->isEmpty())
+		{
+			delete *it;
+			it = channels.erase(it);
+		}
+		else
+			++it;
+	}
     //search through all file descriptors monitored by poll() to remove it from the vector
     for (std::vector<struct pollfd>::iterator it = pollFds.begin();it != pollFds.end();++it)
     {
@@ -187,6 +208,18 @@ Channel* Server::createChannel(const std::string& name)
     channels.push_back(channel);
     return channel;
 }
+void Server::removeChannel(Channel* channel)
+{
+    for (std::vector<Channel*>::iterator it = channels.begin();it != channels.end(); ++it)
+    {
+        if (*it == channel)
+        {
+            delete *it;
+            channels.erase(it);
+            return;
+        }
+    }
+}
 Client* Server::findClientByFd(int fd)
 {
     //go through all clients connected to the server.
@@ -208,6 +241,10 @@ Client* Server::findClientByNickname(const std::string& nickname)
             return *it;
     }
     return NULL;
+}
+const std::vector<Channel*>& Server::getChannels() const
+{
+    return channels;
 }
 
 const std::string& Server::getPassword() const
@@ -235,8 +272,6 @@ void Server::run()
         int ready = poll(&pollFds[0], pollFds.size(), -1);//main thing call the poll its wait until an event happen
         if (ready < 0)//if fail yhe poll
         {
-            if (errno == EINTR)//by signa;
-                continue;//interrupted by a signal,retry
             break;//real poll() failure, stop the server
         }
 
@@ -277,4 +312,11 @@ void Server::run()
                 --i;
         }
     }
+	for (size_t i = 0; i < clients.size(); ++i)
+    {
+        close(clients[i]->getFd());
+        delete clients[i];
+    }
+    clients.clear();
+    close(listenFd);
 }

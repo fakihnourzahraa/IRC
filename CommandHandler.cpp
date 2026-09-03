@@ -16,6 +16,12 @@ void CommandHandler::dispatchCommand(Client& client, const std::string& line)
         return;
     const std::string& command = parsed.command;
     const std::vector<std::string>& params = parsed.params;
+	if (!client.isRegistered() && command != "PASS" && command != "NICK"&& command != "USER"
+        && command != "QUIT" && command != "PING")
+    {
+        client.appendOutput(Replies::notRegistered(client.getNickname()));
+        return;
+    }
 
     if (command == "PASS")
         handlePass(client, params);
@@ -112,14 +118,28 @@ void CommandHandler::handleNick(Client& client,const std::vector<std::string>& p
         return;
     }
 	bool wasRegistered = client.isRegistered();
+	std::string oldNick = client.getNickname();
+
     client.setNickname(newNick);
     client.setNicknameSet(true);
+
     if (!wasRegistered && client.isRegistered())//why this because if an exist client change the nick dont send it again the messages
     {
         client.appendOutput(Replies::welcome(client.getNickname()));
         client.appendOutput(Replies::yourHost(client.getNickname()));
         client.appendOutput(Replies::created(client.getNickname()));
         client.appendOutput(Replies::myInfo(client.getNickname()));
+    }
+	else if (wasRegistered)
+    {
+        std::string message = ":" + oldNick+ " NICK :" + newNick + "\r\n";
+        client.appendOutput(message);
+        const std::vector<Channel*>& channels = server.getChannels();
+        for (size_t i = 0; i < channels.size(); ++i)
+        {
+            if (channels[i]->isMember(&client))
+                channels[i]->broadcast(message, &client);
+        }
     }
 }
 /*user:client provide ir username real name during registration 
@@ -154,7 +174,16 @@ void CommandHandler::handleUser(Client& client,const std::vector<std::string>& p
 /*quit: client ask to disconnect the server ,we remove it from the server and the channels*/
 void CommandHandler::handleQuit(Client& client, const std::vector<std::string>& param)
 {
-    (void)param;
+    std::string reason = "Quit";
+    if (!param.empty())
+        reason = param[0];
+    std::string message = ":" + client.getNickname()+ " QUIT :" + reason + "\r\n";
+    const std::vector<Channel*>& channels = server.getChannels();
+    for (size_t i = 0; i < channels.size(); ++i)
+    {
+        if (channels[i]->isMember(&client))
+            channels[i]->broadcast(message, &client);
+    }
     server.removeClient(client);
 }
 /*
@@ -177,6 +206,7 @@ void CommandHandler::handleJoin(Client& client, const std::vector<std::string>& 
         channel = server.createChannel(channelName);
         channel->addMember(&client);
         channel->addOperator(&client);
+		channel->removeInvite(&client);
     }
     else
     {
@@ -196,6 +226,7 @@ void CommandHandler::handleJoin(Client& client, const std::vector<std::string>& 
             return;
         }
         channel->addMember(&client);
+		channel->removeInvite(&client);
     }
     channel->broadcast(":" + client.getNickname() + " JOIN " + channelName + "\r\n", &client);
     client.appendOutput(":" + client.getNickname() + " JOIN " + channelName + "\r\n");
@@ -263,6 +294,8 @@ void CommandHandler::handleKick(Client& client, const std::vector<std::string>& 
     channel->broadcast(message, &client);
     client.appendOutput(message);
     channel->kick(target);
+	if (channel->isEmpty())
+    	server.removeChannel(channel);
 }
 
 /*topic: client ask to view or change the topic,we check that chennel exist,
@@ -340,6 +373,9 @@ void CommandHandler::handlePart(Client& client, const std::vector<std::string>& 
     channel->broadcast(message, &client);//tell other member
     client.appendOutput(message);
     channel->removeMember(&client);//remove the client from the channel
+	channel->removeOperator(&client);
+	if (channel->isEmpty())
+        server.removeChannel(channel);
 }
 
 //part :the client can remove him self(client leave a channel ,but still connect to server and can join again)
@@ -483,7 +519,7 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
         client.appendOutput(Replies::needMoreParams(client.getNickname(), "PASS"));//when do pass itshould be a paramt after it
         return;
     }
-    const std::string& nickname = param[0];
+    //const std::string& nickname = param[0];
     const std::string& channel = param[1];
 
     Channel *a = server.findChannel(channel);

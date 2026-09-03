@@ -25,6 +25,7 @@ public:
 	static std::string needMoreParams(const std::string& nickname,const std::string& command);//461
 	static std::string alreadyRegistered(const std::string& nickname);//462
 	static std::string passwordMismatch(const std::string& nickname);//464
+	static std::string notRegistered(const std::string& nickname);//451
 	//channel/user errors
 	static std::string userNotInChannel(const std::string& nickname,const std::string& target,const std::string& channel);//441
 	static std::string notOnChannel(const std::string& nickname,const std::string& channel);//442

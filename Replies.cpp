@@ -154,3 +154,7 @@ std::string Replies::inviting(const std::string& nickname,const std::string& tar
 	return (prefix(nickname, "341")
 		+ target + " " + channel + "\r\n");
 }
+std::string Replies::notRegistered(const std::string& nickname)
+{
+    return prefix(nickname, "451") + "You have not registered\r\n";
+}
