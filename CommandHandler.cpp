@@ -519,7 +519,7 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
         client.appendOutput(Replies::needMoreParams(client.getNickname(), "PASS"));//when do pass itshould be a paramt after it
         return;
     }
-    //const std::string& nickname = param[0];
+    // const std::string& nickname = param[0];
     const std::string& channel = param[1];
 
     Channel *a = server.findChannel(channel);
@@ -533,4 +533,11 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
         client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channel));
         return;
     }
+	// char sign = NULL;
+	// for (int i = 0; i < param.size(); i++)
+	// {
+	// 	std::string
+	// }
+	//  go through each word and letter and switch based on
+
 }
