@@ -624,6 +624,11 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
                 a->setTopicRestricted(flag);
             }
         }
+        else
+        {
+            client.appendOutput(Replies::unknownMode(client.getNickname(), channel));
+            return ; 
+        }
     }
     std::string line = ":" + client.getNickname() + " MODE " + channel;
     for (int j = 1; j <= parameterspointer; ++j)
