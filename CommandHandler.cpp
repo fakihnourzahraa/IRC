@@ -408,7 +408,7 @@ void CommandHandler::handlePrivmsg(Client& client, const std::vector<std::string
         Channel *a = server.findChannel(target);
         if (a == NULL)
         {
-            client.appendOutput(Replies::noSuchChannel(client.getNickname(), target));
+            client.appendOutput(Replies::noSuchNick(client.getNickname(), target));
             return ;
         }
         if (!a->isMember(&client))
