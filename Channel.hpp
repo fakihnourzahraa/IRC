@@ -12,8 +12,8 @@
 
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
-#include <string>
-#include <vector>
+# include <string>
+# include <vector>
 # include <iostream>
 # include <cstdlib>
 # include "Client.hpp"

@@ -2,8 +2,8 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
-#include <string>
-#include <vector>
+# include <string>
+# include <vector>
 
 struct ParsedCommand
 {

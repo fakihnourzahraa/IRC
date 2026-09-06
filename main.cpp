@@ -1,8 +1,8 @@
-#include "Server.hpp"
-#include <iostream>
-#include <cstdlib>
-#include <cctype>
-#include <string>
+# include "Server.hpp"
+# include <iostream>
+# include <cstdlib>
+# include <cctype>
+# include <string>
 
 int main(int argc, char** argv)
 {

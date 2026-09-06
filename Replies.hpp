@@ -1,7 +1,7 @@
 #ifndef REPLIES_HPP
 #define REPLIES_HPP
 
-#include <string>
+# include <string>
 
 class Replies
 {

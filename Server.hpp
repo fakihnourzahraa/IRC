@@ -12,9 +12,9 @@
 
 #ifndef SERVER_HPP
 #define SERVER_HPP
-#include <string>
-#include <vector>
-#include <poll.h>
+# include <string>
+# include <vector>
+# include <poll.h>
 
 class Client;
 class Channel;

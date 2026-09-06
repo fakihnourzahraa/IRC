@@ -1,17 +1,17 @@
-#include "Server.hpp"
-#include "Client.hpp"
-#include "Channel.hpp"
-#include "CommandHandler.hpp"
-#include <sys/socket.h>//socket,bind,listen...
-#include <unistd.h>//close
-#include <fcntl.h>//for fcntl
-#include <iostream>//cout,cerr
-#include <stdexcept>//exception
-#include <cstring>//for memset
-#include <sstream>//string stream
-#include <cctype>//toupper...
-#include <netinet/in.h>//sockaddrs_in
-#include <csignal>
+# include "Server.hpp"
+# include "Client.hpp"
+# include "Channel.hpp"
+# include "CommandHandler.hpp"
+# include <sys/socket.h>//socket,bind,listen...
+# include <unistd.h>//close
+# include <fcntl.h>//for fcntl
+# include <iostream>//cout,cerr
+# include <stdexcept>//exception
+# include <cstring>//for memset
+# include <sstream>//string stream
+# include <cctype>//toupper...
+# include <netinet/in.h>//sockaddrs_in
+# include <csignal>
 
 Server::Server(int portNumber, const std::string& serverPassword)
 {

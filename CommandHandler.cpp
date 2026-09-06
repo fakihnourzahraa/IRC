@@ -1,11 +1,11 @@
-#include "CommandHandler.hpp"
-#include "Server.hpp"
-#include "Client.hpp"
-#include "Parser.hpp"
-#include "Channel.hpp"
-#include "Replies.hpp"
-#include <cctype>//isalpha,isalnum
-#include <cstdlib>//atol
+# include "CommandHandler.hpp"
+# include "Server.hpp"
+# include "Client.hpp"
+# include "Parser.hpp"
+# include "Channel.hpp"
+# include "Replies.hpp"
+# include <cctype>//isalpha,isalnum
+# include <cstdlib>//atol
 
 CommandHandler::CommandHandler(Server& srv) : server(srv){}
 CommandHandler::~CommandHandler(){}

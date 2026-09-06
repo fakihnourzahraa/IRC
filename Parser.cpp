@@ -1,5 +1,5 @@
-#include "Parser.hpp"
-#include <cctype>
+# include "Parser.hpp"
+# include <cctype>
 
 ParsedCommand Parser::parse(const std::string& line)
 {
