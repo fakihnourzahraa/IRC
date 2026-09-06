@@ -96,7 +96,12 @@ void CommandHandler::handleNick(Client& client,const std::vector<std::string>& p
         return;
     }
     const std::string& newNick = param[0];
-    if (newNick.empty() || !std::isalpha(newNick[0]))
+    if (newNick.empty())
+    {
+        client.appendOutput(Replies::noNicknameGiven(client.getNickname()));
+        return;
+    }
+    if (!std::isalpha(newNick[0]))
     {
         client.appendOutput(Replies::erroneousNickname(client.getNickname(), newNick));
         return;
@@ -386,7 +391,7 @@ void CommandHandler::handlePart(Client& client, const std::vector<std::string>& 
 
 void CommandHandler::handlePrivmsg(Client& client, const std::vector<std::string>& param)
 {
-    if (param.empty())
+    if (param.empty() || param[0] == "")
     {    client.appendOutput(Replies::noRecipient(client.getNickname(), "PRIVMSG"));
         return;
     }
@@ -599,7 +604,7 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
                     a->setUserLimit((size_t)value);
                 }
             }
-            else //sign == '-'
+            else if (sign == '-')
             {
                 if (mode[i] == 'k')
                 {
