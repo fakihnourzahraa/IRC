@@ -5,6 +5,7 @@
 #include "Channel.hpp"
 #include "Replies.hpp"
 #include <cctype>//isalpha,isalnum
+#include <cstdlib>//atol
 
 CommandHandler::CommandHandler(Server& srv) : server(srv){}
 CommandHandler::~CommandHandler(){}
@@ -22,7 +23,6 @@ void CommandHandler::dispatchCommand(Client& client, const std::string& line)
         client.appendOutput(Replies::notRegistered(client.getNickname()));
         return;
     }
-
     if (command == "PASS")
         handlePass(client, params);
     else if (command == "NICK")
@@ -532,46 +532,74 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
         client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channel));
         return;
     }
-    
+
     std::string mode = param[1];
-    int paramsize = param.size();
+    int paramsize = (int)param.size();
     char sign = '\0'; //instead of null
     int parameterspointer = 1;
+
     for (size_t i = 0; i < mode.size(); i++)
     {
         if (mode[i] == '+' || mode[i] == '-')
+        {
             sign = mode[i];
+        }
         else if (mode[i] == 'k' || mode[i] == 'o' || mode[i] == 'l')
         {
+            if (sign == '\0')
+            {
+                client.appendOutput(Replies::unknownMode(client.getNickname(), std::string(1, mode[i])));
+                return;
+            }
             if (sign == '+')
             {
-                parameterspointer++;
-                if (parameterspointer >=paramsize)
-                {
-                    client.appendOutput(Replies::needMoreParams(client.getNickname(), channel));
-                    return ;
-                }
                 if (mode[i] == 'k')
                 {
+                    parameterspointer++;
+                    if (parameterspointer >= paramsize)
+                    {
+                        client.appendOutput(Replies::needMoreParams(client.getNickname(), "MODE"));
+                        return;
+                    }
                     a->setKey(param[parameterspointer]);
                 }
                 else if (mode[i] == 'o')
                 {
-                    Client *cl = server.findClientByNickname(param[parameterspointer]);
+                    parameterspointer++;
+                    if (parameterspointer >= paramsize)
+                    {
+                        client.appendOutput(Replies::needMoreParams(client.getNickname(), "MODE"));
+                        return;
+                    }
+                    const std::string& targetNick = param[parameterspointer];
+                    Client *cl = server.findClientByNickname(targetNick);
                     if (cl == NULL)
                     {
-                        client.appendOutput(Replies::noSuchNick(client.getNickname(), channel));
-                        return ;
+                        client.appendOutput(Replies::noSuchNick(client.getNickname(), targetNick));
+                        return;
                     }
-                    a->addOperator(server.findClientByNickname(param[parameterspointer]));
+                    if (!a->isMember(cl))
+                    {
+                        client.appendOutput(Replies::userNotInChannel(client.getNickname(), targetNick, channel));
+                        return;
+                    }
+                    a->addOperator(cl);
                 }
                 else if (mode[i] == 'l')
                 {
+                    parameterspointer++;
+                    if (parameterspointer >= paramsize)
+                    {
+                        client.appendOutput(Replies::needMoreParams(client.getNickname(), "MODE"));
+                        return;
+                    }
                     long value = std::atol(param[parameterspointer].c_str());
+                    if (value < 0)
+                        value = 0;
                     a->setUserLimit((size_t)value);
                 }
             }
-            else if (sign == '-')
+            else //sign == '-'
             {
                 if (mode[i] == 'k')
                 {
@@ -580,27 +608,29 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
                 else if (mode[i] == 'o')
                 {
                     parameterspointer++;
-                    if (parameterspointer >=paramsize)
+                    if (parameterspointer >= paramsize)
                     {
-                        client.appendOutput(Replies::needMoreParams(client.getNickname(), channel));
-                        return ;
+                        client.appendOutput(Replies::needMoreParams(client.getNickname(), "MODE"));
+                        return;
                     }
-                    Client *cl = server.findClientByNickname(param[parameterspointer]);
+                    const std::string& targetNick = param[parameterspointer];
+                    Client *cl = server.findClientByNickname(targetNick);
                     if (cl == NULL)
                     {
-                        client.appendOutput(Replies::noSuchNick(client.getNickname(), channel));
-                        return ;
+                        client.appendOutput(Replies::noSuchNick(client.getNickname(), targetNick));
+                        return;
                     }
-                    a->removeOperator(server.findClientByNickname(param[parameterspointer]));
+                    if (!a->isMember(cl))
+                    {
+                        client.appendOutput(Replies::userNotInChannel(client.getNickname(), targetNick, channel));
+                        return;
+                    }
+                    a->removeOperator(cl);
                 }
                 else if (mode[i] == 'l')
                 {
                     a->removeUserLimit();
                 }
-            }
-            else if (sign == '\0'){
-                client.appendOutput(Replies::unknownMode(client.getNickname(), channel));
-                return ;
             }
         }
         else if (mode[i] == 'i' || mode[i] == 't')
@@ -610,24 +640,20 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
                 flag = true;
             else if (sign == '-')
                 flag = false;
-            else if (sign == '\0')
+            else
             {
-                client.appendOutput(Replies::unknownMode(client.getNickname(), channel));
-                return ;
+                client.appendOutput(Replies::unknownMode(client.getNickname(), std::string(1, mode[i])));
+                return;
             }
             if (mode[i] == 'i')
-            {
                 a->setInviteOnly(flag);
-            }
-            else if (mode[i] == 't')
-            {
+            else
                 a->setTopicRestricted(flag);
-            }
         }
         else
         {
-            client.appendOutput(Replies::unknownMode(client.getNickname(), channel));
-            return ; 
+            client.appendOutput(Replies::unknownMode(client.getNickname(), std::string(1, mode[i])));
+            return;
         }
     }
     std::string line = ":" + client.getNickname() + " MODE " + channel;
