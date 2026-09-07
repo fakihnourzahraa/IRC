@@ -203,6 +203,11 @@ void CommandHandler::handleJoin(Client& client, const std::vector<std::string>& 
         return;
     }
     const std::string& channelName = param[0];
+	if (channelName.empty() || channelName[0] != '#')
+	{
+		client.appendOutput(Replies::noSuchChannel(client.getNickname(), channelName));
+		return;
+	}
     Channel* channel = server.findChannel(channelName);
 
     if (channel == NULL)
