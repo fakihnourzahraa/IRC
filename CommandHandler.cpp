@@ -84,6 +84,13 @@ void CommandHandler::handlePass(Client& client,const std::vector<std::string>& p
         return;
     }
     client.setPasswordAccepted(true);//if write pass right put it true
+	if (client.isRegistered())
+	{
+		client.appendOutput(Replies::welcome(client.getNickname()));
+		client.appendOutput(Replies::yourHost(client.getNickname()));
+		client.appendOutput(Replies::created(client.getNickname()));
+		client.appendOutput(Replies::myInfo(client.getNickname()));
+	}
 }
 
 /* nick : client choose a nickname ,the server validate ir and check
@@ -101,6 +108,8 @@ void CommandHandler::handleNick(Client& client,const std::vector<std::string>& p
         client.appendOutput(Replies::noNicknameGiven(client.getNickname()));
         return;
     }
+	if (newNick == client.getNickname())
+    	return;
     if (!std::isalpha(newNick[0]))
     {
         client.appendOutput(Replies::erroneousNickname(client.getNickname(), newNick));
@@ -182,12 +191,28 @@ void CommandHandler::handleQuit(Client& client, const std::vector<std::string>& 
     std::string reason = "Quit";
     if (!param.empty())
         reason = param[0];
-    std::string message = ":" + client.getNickname()+ " QUIT :" + reason + "\r\n";
+    std::string message = ":" + client.getNickname() + " QUIT :" + reason + "\r\n";
     const std::vector<Channel*>& channels = server.getChannels();
-    for (size_t i = 0; i < channels.size(); ++i)
+    std::vector<Channel*> channelsCopy = channels;
+    for (size_t i = 0; i < channelsCopy.size(); ++i)
     {
-        if (channels[i]->isMember(&client))
-            channels[i]->broadcast(message, &client);
+        Channel* channel = channelsCopy[i];
+        if (!channel->isMember(&client))
+            continue;
+        bool wasOperator = channel->isOperator(&client); // capture BEFORE removing
+        channel->broadcast(message, &client);
+        channel->removeMember(&client);
+        channel->removeOperator(&client);
+        if (channel->isEmpty())
+        {
+            server.removeChannel(channel);
+            continue;
+        }
+        if (wasOperator)
+        {
+            const std::vector<Client*>& members = channel->getMembers();
+            channel->addOperator(members[0]); // promote the next member
+        }
     }
     server.removeClient(client);
 }

@@ -123,7 +123,7 @@ operator).
 > **Why this matters for grading:** several of your data structures key off
 > `Client*` pointers rather than nickname strings (operator lists, invite
 > lists, channel membership), which is correct — but any code path that
-> looks a client up **by nickname** (`findClientByNickname`, used in
+> looks a client up **by nickname** (``, used in
 > PRIVMSG/INVITE/KICK/NICK-collision-checks) must always see the *current*
 > nickname, and the *old* nickname must become immediately available for a
 > different client to claim. Test 6.5, 6.8, and 6.11 specifically catch bugs
