@@ -77,7 +77,7 @@ std::string Replies::needMoreParams(const std::string& nickname,const std::strin
 }//:ircserv 461 Mira JOIN :Not enough parameters
 std::string Replies::alreadyRegistered(const std::string& nickname)
 {
-	return (prefix(nickname, "462")+ ":You may not reregister\r\n");
+	return (prefix(nickname, "462")+ ":You are already connected and cannot handshake again\r\n");
 }
 std::string Replies::passwordMismatch(const std::string& nickname)
 {

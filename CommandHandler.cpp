@@ -395,7 +395,7 @@ void CommandHandler::handlePrivmsg(Client& client, const std::vector<std::string
     {    client.appendOutput(Replies::noRecipient(client.getNickname(), "PRIVMSG"));
         return;
     }
-    else if (param.size() < 2)
+    else if (param.size() < 2 || param[1].empty())
     {
         client.appendOutput(Replies::noTextToSend(client.getNickname()));
         return ;
