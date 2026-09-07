@@ -367,25 +367,32 @@ void CommandHandler::handlePart(Client& client, const std::vector<std::string>& 
     }
     const std::string& channelName = param[0];
     Channel* channel = server.findChannel(channelName);
-
     if (channel == NULL)
     {
         client.appendOutput(Replies::noSuchChannel(client.getNickname(), channelName));
         return;
     }
-
     if (!channel->isMember(&client))
     {
         client.appendOutput(Replies::notOnChannel(client.getNickname(), channelName));
         return;
     }
-    std::string message =":" + client.getNickname() +" PART " + channelName + "\r\n";
-    channel->broadcast(message, &client);//tell other member
+    bool wasOperator = channel->isOperator(&client);
+    std::string message = ":" + client.getNickname() + " PART " + channelName + "\r\n";
+    channel->broadcast(message, &client);
     client.appendOutput(message);
-    channel->removeMember(&client);//remove the client from the channel
-	channel->removeOperator(&client);
-	if (channel->isEmpty())
+    channel->removeMember(&client);
+    channel->removeOperator(&client);
+    if (channel->isEmpty())
+    {
         server.removeChannel(channel);
+        return;
+    }
+    if (wasOperator)
+    {
+        const std::vector<Client*>& members = channel->getMembers();
+        channel->addOperator(members[0]);
+    }
 }
 
 //part :the client can remove him self(client leave a channel ,but still connect to server and can join again)
