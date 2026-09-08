@@ -17,39 +17,46 @@ Server::Server(int portNumber, const std::string& serverPassword)
 {
     port = portNumber;
     password = serverPassword;
-    listenFd = -1;//mean no valid socket
-    commandHandler = new CommandHandler(*this);
-}
+    listenFd = -1;//mean no valid socket,bcz socket wasnt created yet
+    commandHandler = new CommandHandler(*this);//it let me access the server and find client ,channel...
+}//the constructor we recieve the port nbr from main and we store it
+//so here we save the port,save the pass,no socket first put(-1),create the cmnd handler and give it acces to server
+
 Server::~Server()
 {
 	size_t i;
 	for (i = 0; i < clients.size(); i++)
 	{
-		close(clients[i]->getFd());
-		delete clients[i];
+		close(clients[i]->getFd());//close it from os
+		delete clients[i];//bcz we use new
 	}
 	for (i = 0; i < channels.size(); i++)
 		delete channels[i];
 	if (listenFd != -1)
 		close(listenFd);
 	delete commandHandler;
-}
+}//its clean everything the server created(avoid memory leak)
+
+
 void Server::handleSignal(int signum)
 {
     (void)signum;
 }
 
 void Server::setupSocket()
-{//the flow:	//socket->setsockopt->bind->listen->fcntl
-    listenFd = socket(AF_INET, SOCK_STREAM, 0);
+{
+	//socket->setsockopt->bind->listen->fcntl(non blocking)->signalhandle
+    listenFd = socket(AF_INET, SOCK_STREAM, 0);//create a socket ipv4,tcp,default protocol
     if (listenFd < 0)
         throw std::runtime_error("socket() failed");
     int opt = 1;
-    setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    struct sockaddr_in address;//we need it for bind
+    setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));//configure the socket
+	//reuseaddr rge most important bcz it let me to reuse the add/port after we stop the server and run it immediately
+
+    struct sockaddr_in address;//we create the structure that contain info for bind()(addr,ip family,port)
     std::memset(&address, 0, sizeof(address));//initial to 0 to make sure we do right
     address.sin_family = AF_INET;//ipv4
-    address.sin_addr.s_addr = INADDR_ANY;//any local host
+    address.sin_addr.s_addr = INADDR_ANY;//accept connection from any local ip addrs
     address.sin_port = htons(port);//transform from computer byte to network byte
 
     if (bind(listenFd, (struct sockaddr*)&address, sizeof(address)) < 0)
@@ -59,25 +66,26 @@ void Server::setupSocket()
         throw std::runtime_error("listen() failed");
 
     fcntl(listenFd, F_SETFL, O_NONBLOCK);//nonblock make recv send return immediately instead of blocking
-	struct sigaction sa;
+	struct sigaction sa;//struct for the signal
     sa.sa_handler = Server::handleSignal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGQUIT, &sa, NULL);
 
-    struct pollfd pfd;//now we have the listenfd and server use poll() so pollfd have info
-						//the poll should monitor
+    struct pollfd pfd;//server use poll() we need to give it info about the fd we want to monitor
+	//which fd,what event are we handle,what event actually happen
+
     pfd.fd = listenFd;
-    pfd.events = POLLIN;//when new connection arrive wait for input
-	//we dont use pollout bcz pollout more focus on outp
+    pfd.events = POLLIN;//tell me when fd is ready to read ,for listenning fd pollin mean new client connection is waiting
     pfd.revents = 0;//we initial by 0 then poll overwrite it
-    pollFds.push_back(pfd);
+	//event :what we want to watch,revent :what actually happened
+    pollFds.push_back(pfd);//add the listen fd to the vector
 }
 
 void Server::acceptNewClient()
 {
-    struct sockaddr_in clientAddress;//create struc where accept will store info about client
+    struct sockaddr_in clientAddress;//create struc where accept will store info about client(ip,port)
     socklen_t clientLen = sizeof(clientAddress);//tell accept size of the clientAddr struc
     //listenFd=the serv listen socket/ clientAddr=where accept can store the client add/client len lengt of struct
     
@@ -90,16 +98,18 @@ void Server::acceptNewClient()
         close(clientFd);
         return;//we close it and stop handle it
     }
-    Client* client = new Client(clientFd);
+    Client* client = new Client(clientFd);//fd,nickname,username...
     clients.push_back(client);//we push it to client vector
 	
-    struct pollfd pfd;//creat a pollfd for the new client
+    struct pollfd pfd;//create a pollfd for the new client
 	//poll() need pollfd for each client
     pfd.fd = clientFd;//tell poll that we work by the clientfd
     pfd.events = POLLIN;//to know when this client have data avail to read
     pfd.revents = 0;
     pollFds.push_back(pfd);
 }
+//client want to connect->poll()detect pollin on listenfd->accpetnewclient()->accept()->
+//new client socket fd created->make client non block->create client obj->add client to vect and fd to vect
 
 void Server::receiveData(Client& client)
 {
@@ -118,13 +128,13 @@ void Server::receiveData(Client& client)
         return;
     }
     client.appendInput(std::string(buffer, bytesReceived));
-    //check if inputbuff have at leat an irc cmnd end with\r\n
+    //check if inputbuff have at least an irc cmnd end with\r\n
     while (findClientByFd(fd) != NULL && client.hasCompleteLine())
     {
-        std::string line = client.extractLine();//take one inoput out of inputbuff
+        std::string line = client.extractLine();//take one input out of inputbuff
         commandHandler->dispatchCommand(client, line);//identify the command 
     }
-}
+}//recv->put rec byte into inputbuffer->check for the complete cmnd->extract one comnd->dispatchcmnd
 
 void Server::sendData(Client& client)
 {
@@ -147,8 +157,7 @@ void Server::sendData(Client& client)
 
 void Server::removeClient(Client& client)
 {
-    int fd = client.getFd();//save the fc client we want to delete
-
+    int fd = client.getFd();//save the client fd we want to delete
     //we remove the client from all the channels we have
     for (std::vector<Channel*>::iterator it = channels.begin(); it != channels.end(); )
 	{
@@ -194,7 +203,7 @@ Channel* Server::findChannel(const std::string& name)
     //go through all channels stored in the server
     for (std::vector<Channel*>::iterator it = channels.begin();it != channels.end();++it)
     {
-        //check if the current chhanel is the ome we search for
+        //check if the current chanel is the ome we search for
         if ((*it)->getName() == name)
         {
             return *it;
@@ -214,8 +223,8 @@ void Server::removeChannel(Channel* channel)
     {
         if (*it == channel)
         {
-            delete *it;
-            channels.erase(it);
+            delete *it;//free the objct
+            channels.erase(it);//remove pointer from the vector
             return;
         }
     }
@@ -270,7 +279,7 @@ void Server::run()
                 pollFds[i].events = POLLIN;//when client send data
         }
         int ready = poll(&pollFds[0], pollFds.size(), -1);//main thing call the poll its wait until an event happen
-        if (ready < 0)//if fail yhe poll
+        if (ready < 0)//if the poll fail
         {
             break;//real poll() failure, stop the server
         }
@@ -320,3 +329,8 @@ void Server::run()
     clients.clear();
     close(listenFd);
 }
+//setupsocket->wait with poll()->something happen
+//if new client->accept()
+//else it is an existing client->receive data->execute cmnd->send response ->go back to poll()
+//poll allow monitor multiple socket at the same time
+//events contains what we want to monitor, revents contains what actually happened after poll() returns
