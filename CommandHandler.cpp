@@ -569,11 +569,6 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
         client.appendOutput(Replies::noSuchChannel(client.getNickname(), channel));
         return;
     }
-    if (!a->isMember(&client))
-    {
-        client.appendOutput(Replies::notOnChannel(client.getNickname(), channel));
-        return;
-    }
     if (!a->isOperator(&client))
     {
         client.appendOutput(Replies::chanOpPrivilegesNeeded(client.getNickname(), channel));
