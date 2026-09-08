@@ -600,7 +600,6 @@ void CommandHandler::handleMode(Client& client, const std::vector<std::string>& 
                     parameterspointer++;
                     if (parameterspointer >= paramsize)
                     {
-                        client.appendOutput(Replies::needMoreParams(client.getNickname(), "MODE"));
                         return;
                     }
                     a->setKey(param[parameterspointer]);
