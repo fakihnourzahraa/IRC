@@ -6,12 +6,20 @@ _This project has been created as part of the 42 curriculum by nfakih and miwehb
 
 IRC stands for internet relay chat, the aim of this project is to create an IRC server in C++. The server needs to be able to handle clients simultaneously. All input and output operations need to be non-blocking. Additionally we can only use 1 poll. Implemented are join, nickname, username, private messages. Additionally, there are operators who can: kick, invite, set a topic, and change the channel's mode.
 
+# Requirements
+
+- C++98 compiler (g++ / clang++)
+- POSIX-compliant system (Linux / macOS)
+
 # Instructions
 
 After cloning the repository, enter the folder, make and run the executable "ircserv" with your desired port and password.
 
 ```bash
-make
+make        # build the executable
+make re     # clean rebuild
+make clean  # remove object files
+make fclean # remove object files and executable
 
 ./ircserv 6667 password
 ```
@@ -59,6 +67,27 @@ or
 ```bash
 /connect -tls irc.libera.chat 6697
 ```
+
+# Architecture
+
+```
+.
+├── main.cpp             # Entry point, argument parsing
+├── Server.cpp/.hpp      # Core server: socket setup, poll loop, accept/read/write, client & channel management
+├── Client.cpp/.hpp      # Per-client state (nick, user, registration flags) and input/output buffers
+├── CommandHandler.cpp/.hpp # Parses dispatched commands and implements IRC command logic
+├── Channel.cpp/.hpp     # Channel state: members, operators, invites, modes (i/t/k/o/l)
+├── Parser.cpp/.hpp      # Splits a raw line into command + params
+├── Replies.cpp/.hpp     # Builds RFC-style numeric reply strings
+└── Makefile
+```
+
+**Key design points:**
+- Single-threaded, non-blocking I/O using a single `poll()` call for listening socket, reads, and writes
+- All sockets (listening and client) set to `O_NONBLOCK`
+- Per-client input/output buffers to correctly reassemble partial/fragmented TCP messages before parsing
+- IRC message parsing follows the RFC 1459 command/parameter format
+- Client registration requires `PASS` + `NICK` + `USER` before any other command is accepted
 
 # Commands
 
@@ -195,13 +224,15 @@ KICK #42 bob :bye bob
 
 ### MODE
 
-Changes a channel's mode. Requires operator privileges. Supported flags:
+Changes a channel's mode. Requires operator privileges.
 
-- `i` invite-only channel
-- `t` restrict TOPIC to operators only
-- `k` set/remove channel key (password)
-- `o` give/take operator privilege to a user
-- `l` set/remove a user limit
+| Mode | Description                    |
+|------|---------------------------------|
+| `i`  | Invite-only channel             |
+| `t`  | Restrict TOPIC to operators     |
+| `k`  | Set/remove channel key (password) |
+| `o`  | Give/take operator privilege    |
+| `l`  | Set/remove a user limit         |
 
 ```bash
 # nc
