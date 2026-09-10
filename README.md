@@ -68,6 +68,28 @@ or
 /connect -tls irc.libera.chat 6697
 ```
 
+To test loads of messages:
+
+```bash
+{                  
+
+  printf "PASS mypass\r\n"
+
+  printf "NICK s\r\n"
+
+  printf "USER s 0 * :s\r\n"
+
+  printf "JOIN #test\r\n"
+
+  for i in $(seq 1 200); do
+
+    printf "PRIVMSG #test :flood %d\r\n" $i
+
+  done
+
+} | nc -C 127.0.0.1 6667
+```
+
 # Architecture
 
 ```
@@ -302,10 +324,11 @@ Commands:
 - Testing edge cases
 - Initial structure and understanding the project
 - Dividing the work
+- ReadMe formatting and fixing
 
 # Work Division
 
-- nfakih: Channel, command handlers, mode, and bot
+- nfakih: Channel, command handlers, teting, and mode
 - miwehbe: Client, server, parser, replies, and command handler
 
 *Made with lots of coffee and debugging at 42 Beirut*
